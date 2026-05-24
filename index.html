@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JS Under the Hood — How browser JavaScript actually works</title>
+  <meta name="description" content="A friendly-but-rigorous walkthrough of how JavaScript runs in the browser: the engine, the event loop, Web APIs, and the task queue — finally disentangled." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip" href="#architecture">Skip to the diagram</a>
+
+  <header class="site-header">
+    <a href="#" class="brand" aria-label="JS Under the Hood — home">
+      <span class="brand-mark" aria-hidden="true">◇</span>
+      <span class="brand-name">JS / Under the Hood</span>
+    </a>
+    <nav class="primary-nav" aria-label="Sections">
+      <ol>
+        <li><a href="#architecture">00 · Architecture</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+        <li><a href="https://github.com/" class="ext" rel="noopener">GitHub ↗</a></li>
+      </ol>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <p class="kicker">A field manual for browser&nbsp;JavaScript</p>
+      <h1 id="hero-title" class="display">
+        JS Under the <em>Hood</em>
+      </h1>
+      <p class="lede">
+        How a single-threaded language handles clicks, timers, fetches, and animations all at once — without ever blocking itself. We start by pulling the machine apart.
+      </p>
+      <dl class="meta-strip">
+        <div>
+          <dt>Section</dt>
+          <dd>00 / The architecture</dd>
+        </div>
+        <div>
+          <dt>Audience</dt>
+          <dd>Working JS devs</dd>
+        </div>
+        <div>
+          <dt>Approach</dt>
+          <dd>Friendly &amp; rigorous</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="architecture" id="architecture" aria-labelledby="arch-title">
+      <header class="section-head">
+        <p class="section-num">§ 00</p>
+        <h2 id="arch-title" class="section-title">The architecture, <em>at a glance</em></h2>
+        <p class="section-intro">
+          Six pieces conspire to make asynchronous JavaScript work. Three of them aren&rsquo;t part of JavaScript at all — they belong to the browser. Click any piece to see what it actually does.
+        </p>
+      </header>
+
+      <div class="diagram-stage">
+        <div class="diagram" id="diagram" role="group" aria-label="Interactive browser JavaScript architecture diagram">
+
+          <button class="piece piece-stack" data-piece="call-stack" data-region="engine" type="button" aria-label="Call Stack — click to learn more">
+            <header class="piece-head">
+              <span class="piece-idx">01</span>
+              <span class="piece-name">Call Stack</span>
+              <span class="piece-region">Engine</span>
+            </header>
+            <p class="piece-sub">LIFO. One per program.</p>
+            <ol class="stack-viz" aria-hidden="true">
+              <li>doThing()</li>
+              <li>render()</li>
+              <li>main()</li>
+            </ol>
+          </button>
+
+          <button class="piece piece-heap" data-piece="heap" data-region="engine" type="button" aria-label="Memory Heap — click to learn more">
+            <header class="piece-head">
+              <span class="piece-idx">02</span>
+              <span class="piece-name">Memory Heap</span>
+              <span class="piece-region">Engine</span>
+            </header>
+            <p class="piece-sub">Objects, closures, references.</p>
+            <div class="heap-viz" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </button>
+
+          <button class="piece piece-apis" data-piece="web-apis" data-region="browser" type="button" aria-label="Web APIs — click to learn more">
+            <header class="piece-head">
+              <span class="piece-idx">03</span>
+              <span class="piece-name">Web APIs</span>
+              <span class="piece-region">Browser</span>
+            </header>
+            <p class="piece-sub">Not JavaScript. Provided by the browser.</p>
+            <ul class="api-list" aria-hidden="true">
+              <li>setTimeout</li>
+              <li>fetch</li>
+              <li>DOM events</li>
+              <li>geolocation</li>
+              <li>IntersectionObserver</li>
+              <li>…and many more</li>
+            </ul>
+          </button>
+
+          <button class="piece piece-loop" data-piece="event-loop" data-region="browser" type="button" aria-label="Event Loop — click to learn more">
+            <header class="piece-head">
+              <span class="piece-idx">06</span>
+              <span class="piece-name">Event Loop</span>
+              <span class="piece-region">Browser</span>
+            </header>
+            <p class="piece-sub">The orchestrator. Never stops.</p>
+            <div class="loop-viz" aria-hidden="true">
+              <span class="loop-ring"></span>
+              <span class="loop-dot"></span>
+            </div>
+            <p class="loop-caption">if stack empty → drain microtasks → take next task</p>
+          </button>
+
+          <button class="piece piece-microtask" data-piece="microtask-queue" data-region="browser" type="button" aria-label="Microtask Queue — click to learn more">
+            <header class="piece-head">
+              <span class="piece-idx">04</span>
+              <span class="piece-name">Microtask Q.</span>
+              <span class="piece-region">Browser</span>
+            </header>
+            <p class="piece-sub">Drained fully, each tick.</p>
+            <ul class="queue-viz queue-viz--micro" aria-hidden="true">
+              <li>.then</li><li>.then</li><li>qMt</li>
+            </ul>
+          </button>
+
+          <button class="piece piece-task" data-piece="task-queue" data-region="browser" type="button" aria-label="Task Queue — click to learn more">
+            <header class="piece-head">
+              <span class="piece-idx">05</span>
+              <span class="piece-name">Task Queue</span>
+              <span class="piece-region">Browser</span>
+            </header>
+            <p class="piece-sub">One task, per tick.</p>
+            <ul class="queue-viz queue-viz--macro" aria-hidden="true">
+              <li>timeout</li><li>click</li><li>msg</li>
+            </ul>
+          </button>
+
+          <!-- Arrows / annotations overlay -->
+          <svg class="arrows" viewBox="0 0 1200 560" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+              </marker>
+              <marker id="arrowhead-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)" />
+              </marker>
+            </defs>
+
+            <!-- A: Stack → Web APIs (top, left-to-right) -->
+            <path class="arrow arrow-a" d="M 290 120 C 440 80, 540 80, 640 120" fill="none" marker-end="url(#arrowhead)" />
+            <text class="arrow-label" x="380" y="70">Ⓐ &nbsp;hand off async work</text>
+
+            <!-- B: Web APIs → Microtask Queue -->
+            <path class="arrow arrow-b" d="M 780 240 C 770 290, 760 320, 760 350" fill="none" marker-end="url(#arrowhead)" />
+            <text class="arrow-label" x="600" y="300">Ⓑ &nbsp;promise jobs</text>
+
+            <!-- C: Web APIs → Task Queue -->
+            <path class="arrow arrow-c" d="M 1020 240 C 1040 290, 1050 320, 1050 350" fill="none" marker-end="url(#arrowhead)" />
+            <text class="arrow-label" x="1060" y="300">Ⓒ &nbsp;callbacks</text>
+
+            <!-- D: Microtask → Event Loop -->
+            <path class="arrow arrow-d arrow-accent" d="M 700 440 C 600 440, 500 440, 420 440" fill="none" marker-end="url(#arrowhead-accent)" />
+
+            <!-- E: Task → Event Loop -->
+            <path class="arrow arrow-e arrow-accent" d="M 940 470 C 800 510, 600 510, 440 470" fill="none" marker-end="url(#arrowhead-accent)" />
+
+            <!-- F: Event Loop → Stack (loop completes circle) -->
+            <path class="arrow arrow-f arrow-accent" d="M 200 350 C 160 280, 140 220, 150 200" fill="none" marker-end="url(#arrowhead-accent)" />
+            <text class="arrow-label arrow-label--accent" x="22" y="290">Ⓕ &nbsp;back onto the stack</text>
+          </svg>
+        </div>
+
+        <aside class="explainer" id="explainer" aria-live="polite">
+          <div class="explainer-inner">
+            <div class="explainer-state explainer-empty" data-state="empty">
+              <p class="explainer-kicker">Begin</p>
+              <h3 class="explainer-title">Click any piece of the diagram</h3>
+              <p class="explainer-body">
+                Each box is a part of the machine that runs your code. Some live <em>inside</em> the JavaScript engine. Some are part of the browser around it. Knowing which is which is the whole point.
+              </p>
+              <ul class="explainer-legend">
+                <li><span class="swatch swatch-engine"></span> Region A &mdash; the JS engine</li>
+                <li><span class="swatch swatch-browser"></span> Region B &mdash; the browser</li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <p class="margin-note">
+        <span aria-hidden="true">✱</span>
+        &nbsp;Most of what looks like &ldquo;JavaScript doing work&rdquo; is actually the&nbsp;browser doing work. The engine sits patiently in the middle, processing one frame at a time.
+      </p>
+    </section>
+
+    <section class="roadmap" id="roadmap" aria-labelledby="roadmap-title">
+      <header class="section-head">
+        <p class="section-num">§ Roadmap</p>
+        <h2 id="roadmap-title" class="section-title">What&rsquo;s coming</h2>
+        <p class="section-intro">Each piece of the diagram earns its own chapter. Code runs inline; you can edit it and re-run.</p>
+      </header>
+      <ol class="chapters">
+        <li>
+          <p class="ch-num">01</p>
+          <h3>The Call Stack &amp; execution contexts</h3>
+          <p class="ch-status">Drafting</p>
+        </li>
+        <li>
+          <p class="ch-num">02</p>
+          <h3>Web APIs &mdash; the browser&rsquo;s offer</h3>
+          <p class="ch-status">Planned</p>
+        </li>
+        <li>
+          <p class="ch-num">03</p>
+          <h3>The Event Loop, formally</h3>
+          <p class="ch-status">Planned</p>
+        </li>
+        <li>
+          <p class="ch-num">04</p>
+          <h3>Microtasks vs Macrotasks</h3>
+          <p class="ch-status">Planned</p>
+        </li>
+        <li>
+          <p class="ch-num">05</p>
+          <h3>The rendering pipeline &amp; <code>requestAnimationFrame</code></h3>
+          <p class="ch-status">Planned</p>
+        </li>
+        <li>
+          <p class="ch-num">06</p>
+          <h3>A short note on Node.js</h3>
+          <p class="ch-status">Planned</p>
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      Built with the very thing it explains — vanilla HTML, CSS, and JavaScript.
+    </p>
+    <p class="colophon">
+      Set in <em>Instrument&nbsp;Serif</em>, <em>Newsreader</em>, and <em>JetBrains&nbsp;Mono</em>. Released under MIT.
+    </p>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
